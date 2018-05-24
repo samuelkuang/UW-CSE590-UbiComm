@@ -322,8 +322,14 @@ int bleReceiveDataCallback(uint16_t value_handle, uint8_t *buffer, uint16_t size
  * the connected BLE device (e.g., Android)
  */
 static void bleSendDataTimerCallback(btstack_timer_source_t *ts) {
-  // CSE590 Student TODO
-  // Write code that uses the ultrasonic sensor and transmits this to Android
-  // Example ultrasonic code here: https://github.com/jonfroehlich/CSE590Sp2018/tree/master/L06-Arduino/RedBearDuoUltrasonicRangeFinder
-  // Also need to check if distance measurement < threshold and sound alarm
+  send_data[0] = (0x0A);
+  send_data[1] = (0x00);
+  send_data[2] = (0x00);
+  send_data[3] = (0x00);
+
+  ble.sendNotify(send_handle, send_data, SEND_MAX_LEN);
+   
+  // Restart timer.
+  ble.setTimer(ts, 2000);
+  ble.addTimer(ts);
 }
