@@ -10,6 +10,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -34,8 +35,11 @@ import com.google.android.gms.vision.Tracker;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
 import com.google.android.gms.vision.face.LargestFaceFocusingProcessor;
+import com.vikramezhil.droidspeech.DroidSpeech;
+import com.vikramezhil.droidspeech.OnDSListener;
 
 import java.io.IOException;
+import java.util.List;
 
 import io.makeabilitylab.facetrackerble.ble.BLEDevice;
 import io.makeabilitylab.facetrackerble.ble.BLEListener;
@@ -58,7 +62,7 @@ import io.makeabilitylab.facetrackerble.camera.GraphicOverlay;
  * Jon TODO:
  *  1. (Low priority) We shouldn't disconnect from BLE just because our orientation changed (e.g., from Portrait to Landscape). How to deal?
  */
-public class MainActivity extends AppCompatActivity implements BLEListener{
+public class MainActivity extends AppCompatActivity implements BLEListener, OnDSListener{
 
     private static final String TAG = "FaceTrackerBLE";
     private static final int RC_HANDLE_GMS = 9001;
@@ -79,7 +83,7 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
     // Bluetooth stuff
     private BLEDevice mBLEDevice;
 
-    private SpeechRecognizer sr;
+    private DroidSpeech droidSpeech;
 
     // TODO: Define your device name and the length of the name. For your assignment, do not use the
     // default name or you will not be able to discriminate your board from everyone else's board.
@@ -123,8 +127,7 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
             requestAudioPermission();
         }
         else {
-            sr = SpeechRecognizer.createSpeechRecognizer(this);
-            sr.setRecognitionListener(new listener());
+            this.startSpeechRecognition();
         }
 
         // Make sure that Bluetooth is supported.
@@ -150,66 +153,74 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
         attemptBleConnection();
     }
 
-    class listener implements RecognitionListener
-    {
-        public void onReadyForSpeech(Bundle params)
-        {
-            Log.d(TAG, "onReadyForSpeech");
-        }
-        public void onBeginningOfSpeech()
-        {
-            Log.d(TAG, "onBeginningOfSpeech");
-        }
-        public void onRmsChanged(float rmsdB)
-        {
-            Log.d(TAG, "onRmsChanged");
-        }
-        public void onBufferReceived(byte[] buffer)
-        {
-            Log.d(TAG, "onBufferReceived");
-        }
-        public void onEndOfSpeech()
-        {
-            Log.d(TAG, "onEndofSpeech");
-        }
-        public void onError(int error)
-        {
-            Log.d(TAG,  "error " +  error);
-        }
-        public void onResults(Bundle results)
-        {
-            String str = new String();
-            Log.d(TAG, "onResults " + results);
-            ArrayList data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-            str = data.get(0).toString();
+    @Override
+    public void onDroidSpeechSupportedLanguages(String currentSpeechLanguage, List<String> supportedSpeechLanguages) {
 
-            byte[] buf = new byte[] { (byte) 0x02, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00}; // 5-byte initialization
+    }
 
-            if (str.equalsIgnoreCase("shut up")) {
-                buf[4] = 0x01;
-            }
-            else if (str.equalsIgnoreCase("password")) {
-                buf[4] = 0x02;
-            }
-            else if (str.equalsIgnoreCase("operate")) {
-                buf[4] = 0x04;
-            }
+    @Override
+    public void onDroidSpeechRmsChanged(float rmsChangedValue) {
 
-            if (buf[4] != 0x00) {
-                // Send the data!
-                mBLEDevice.sendData(buf);
-            }
+    }
 
-            TextView textViewBleStatus = (TextView)findViewById(R.id.textViewBleStatus);
-            textViewBleStatus.setText("Receiced command: '" + str + "'");
+    @Override
+    public void onDroidSpeechLiveResult(String liveSpeechResult) {
+    }
+
+    @Override
+    public void onDroidSpeechFinalResult(String finalSpeechResult) {
+        byte[] buf = new byte[] { (byte) 0x02, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00}; // 5-byte initialization
+
+        String str = finalSpeechResult;
+
+        if (str.equalsIgnoreCase("stop")) {
+            buf[4] = 0x01;
         }
-        public void onPartialResults(Bundle partialResults)
-        {
-            Log.d(TAG, "onPartialResults");
+        else if (str.equalsIgnoreCase("password")) {
+            buf[4] = 0x02;
         }
-        public void onEvent(int eventType, Bundle params)
-        {
-            Log.d(TAG, "onEvent " + eventType);
+        else if (str.equalsIgnoreCase("alarm")) {
+            buf[4] = 0x04;
+        }
+
+        if (buf[4] != 0x00) {
+            // Send the data!
+            mBLEDevice.sendData(buf);
+        }
+
+
+        String msg = "Receiced command: '" + str + "'";
+        Toast toast = Toast.makeText(
+                MainActivity.this,
+                msg,
+                Toast.LENGTH_LONG);
+        toast.show();
+    }
+
+    @Override
+    public void onDroidSpeechClosedByUser() {
+        Log.d(TAG, "Speech recognition closed");
+        this.stopSpeechRecognition();
+        this.startSpeechRecognition();
+    }
+
+    @Override
+    public void onDroidSpeechError(String errorMsg) {
+
+    }
+
+    private void startSpeechRecognition() {
+        if (droidSpeech == null) {
+            droidSpeech = new DroidSpeech(this, null);
+            droidSpeech.setOnDroidSpeechListener(this);
+        }
+        droidSpeech.startDroidSpeechRecognition();
+    }
+
+    private void stopSpeechRecognition() {
+        if (droidSpeech != null) {
+            droidSpeech.closeDroidSpeechOperations();
+            droidSpeech = null;
         }
     }
 
@@ -381,6 +392,8 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
         if (mCameraSource != null) {
             mCameraSource.release();
         }
+
+        this.stopSpeechRecognition();
     }
 
     /**
@@ -439,8 +452,7 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
             if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "Record audio permission granted - initialize the camera source");
                 // we have permission, so initialize the speech recognizer
-                sr = SpeechRecognizer.createSpeechRecognizer(this);
-                sr.setRecognitionListener(new listener());
+                this.startSpeechRecognition();
                 return;
             }
         }
@@ -466,7 +478,6 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
      */
     private View.OnClickListener mFlipButtonListener = new View.OnClickListener() {
         public void onClick(View v) {
-            /*
             mIsFrontFacing = !mIsFrontFacing;
 
             if (mCameraSource != null) {
@@ -476,17 +487,6 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
 
             createCameraSource();
             startCameraSource();
-            */
-            if (sr != null) {
-                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"voice.recognition.test");
-
-                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,5);
-                sr.startListening(intent);
-                Log.i("111111","11111111");
-            }
-
         }
     };
 
@@ -697,16 +697,12 @@ public class MainActivity extends AppCompatActivity implements BLEListener{
     @Override
     public void onBleDataReceived(byte[] data) {
         for (int i = 0; i < data.length; i += 4) {
-            if (data[i] == 0x0A && sr != null) {
-                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"voice.recognition.test");
-
-                intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,5);
-                sr.startListening(intent);
-                Log.i("111111","11111111");
+            if (data[i] == 0x0A) {
+                this.stopSpeechRecognition();
+                this.startSpeechRecognition();
             }
         }
+
     }
 
     @Override
