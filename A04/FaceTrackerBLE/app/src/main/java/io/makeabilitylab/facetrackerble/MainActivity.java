@@ -85,6 +85,8 @@ public class MainActivity extends AppCompatActivity implements BLEListener, OnDS
 
     private DroidSpeech droidSpeech;
 
+    private MovingAverage posAve = new MovingAverage(20);
+
     // TODO: Define your device name and the length of the name. For your assignment, do not use the
     // default name or you will not be able to discriminate your board from everyone else's board.
     // Note the device name and the length should be consistent with the ones defined in the Duo sketch
@@ -607,7 +609,8 @@ public class MainActivity extends AppCompatActivity implements BLEListener, OnDS
             // CSE590 Student TODO:
             // Write code that puts in your data into the buffer
             float angle = (float)(1.0 - (face.getPosition().x + face.getWidth() / 2) / mPreview.getPreviewSize().getWidth());
-            buf[4] = (byte)(angle * 68 + 56);
+            posAve.smooth(angle);
+            buf[4] = (byte)(posAve.getCurrentAvg() * 68 + 56);
 
             debugFaceInfo = String.format("Angle: %d", buf[4]);
             Log.i(TAG, debugFaceInfo);
