@@ -182,7 +182,7 @@ void loop()
   cm = pulse_width / 58.0;
   inches = pulse_width / 148.0;
 
-  if (cm < 75 && alarm_pause_counter == 0) {
+  if (cm < 50 && alarm_pause_counter == 0) {
     alarm();
   }
   else {
