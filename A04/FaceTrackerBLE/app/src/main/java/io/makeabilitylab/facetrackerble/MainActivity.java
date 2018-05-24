@@ -701,8 +701,17 @@ public class MainActivity extends AppCompatActivity implements BLEListener, OnDS
     public void onBleDataReceived(byte[] data) {
         for (int i = 0; i < data.length; i += 4) {
             if (data[i] == 0x0A) {
-                this.stopSpeechRecognition();
-                this.startSpeechRecognition();
+                int distance  = (int)data[i+2] * 256 + (int)data[i+3] ;
+                if (distance < 500) {
+                    this.stopSpeechRecognition();
+                    this.startSpeechRecognition();
+                }
+                String msg = String.format("Detected distance: %.1f cm", distance/10.0);
+                Toast toast = Toast.makeText(
+                        MainActivity.this,
+                        msg,
+                        Toast.LENGTH_LONG);
+                toast.show();
             }
         }
 

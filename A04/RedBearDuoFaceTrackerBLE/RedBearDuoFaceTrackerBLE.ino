@@ -15,7 +15,7 @@ SYSTEM_MODE(SEMI_AUTOMATIC);
 #endif
 
 #define RECEIVE_MAX_LEN  5 // TODO: change this based on how much data you are sending from Android 
-#define SEND_MAX_LEN    3
+#define SEND_MAX_LEN    4
 
 // Must be an integer between 1 and 9 and and must also be set to len(BLE_SHORT_NAME) + 1
 #define BLE_SHORT_NAME_LEN 8 
@@ -74,6 +74,7 @@ static byte color_table[][3] = {{255, 0, 0}, {0, 0, 255}, {255, 255, 255} };
 static int color_table_len = sizeof(color_table) / sizeof(color_table[0]);
 
 static int alarm_pause_counter = 0;
+static uint16_t distance = 0;
 
 static uint8_t receive_data[RECEIVE_MAX_LEN] = { 0x01 };
 int bleReceiveDataCallback(uint16_t value_handle, uint8_t *buffer, uint16_t size); // function declaration for receiving data callback
@@ -179,8 +180,10 @@ void loop()
   // are found in the datasheet, and calculated from the assumed speed 
   // of sound in air at sea level (~340 m/s).
   // Datasheet: https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf
+
   cm = pulse_width / 58.0;
-  inches = pulse_width / 148.0;
+  
+  distance = (uint16_t)(cm * 10);
 
   if (cm < 50 && alarm_pause_counter == 0) {
     alarm();
@@ -205,7 +208,6 @@ void loop()
     noTone(BUZZER_OUT_PIN);
     current_siren_idx = 0;
   }
-  
 
   // The HC-SR04 datasheet recommends waiting at least 60ms before next measurement
   // in order to prevent accidentally noise between trigger and echo
@@ -324,12 +326,12 @@ int bleReceiveDataCallback(uint16_t value_handle, uint8_t *buffer, uint16_t size
 static void bleSendDataTimerCallback(btstack_timer_source_t *ts) {
   send_data[0] = (0x0A);
   send_data[1] = (0x00);
-  send_data[2] = (0x00);
-  send_data[3] = (0x00);
+  send_data[2] = (byte)((distance >> 8) & 0xff);
+  send_data[3] = (byte)(distance & 0xff);
 
   ble.sendNotify(send_handle, send_data, SEND_MAX_LEN);
    
   // Restart timer.
-  ble.setTimer(ts, 2000);
+  ble.setTimer(ts, 200);
   ble.addTimer(ts);
 }
